@@ -1,18 +1,27 @@
 
-#include "rpio_data.h"
+#include "rpio_read.h"
 #include "tcp_client.h"
 #
 #include <signal.h>
 
 TCP_CLIENT_HANDLE g_handle;
+static HANDLE s_rpioDataLock = NULL;
 
 void ExitProcess(int signo)
 {
 	printf("ExitProcess...\n");
-
+	if (g_handle.sockfd > 0)
+	{
+		tcp_client_sock_close(g_handle.sockfd);
+	}
+	pthread_rwlock_destroy(&g_handle.rwlock);
 	rpioDataLockUninit();
 	_exit(1);
 }
+
+void rpioDataLockInit(void) { s_rpioDataLock = rw_mutex_create(); }
+
+void rpioDataLockUninit(void) { rw_mutex_destroy(s_rpioDataLock); }
 
 // 定义回调函数
 void callbackFunction(int sock_fd, char *buffer, int len) { tcp_client_send_data(sock_fd, buffer, len); }
@@ -20,11 +29,25 @@ void callbackFunction(int sock_fd, char *buffer, int len) { tcp_client_send_data
 void send_fun(void *args)
 {
 	TCP_CLIENT_HANDLE *pHandle = (TCP_CLIENT_HANDLE *)args;
+	FILE *fp;
+	if (rw_mutex_rlock(s_rpioDataLock, 500) != ERR_MUTEX_OK)
+	{
+		return;
+	}
+	if (openRPIOFile_R(&fp) == FALSE)
+	{
+		printf("打开文件失败！\n");
+		rw_mutex_unLock(s_rpioDataLock);
+		return;
+	}
+
 	while (1)
 	{
-		transfer_data(pHandle->sockfd);
-		sleep(1);
+		transfer_data(fp, pHandle);
+		usleep(500);
 	}
+	closeRPIOFile_R(fp);
+	rw_mutex_unLock(s_rpioDataLock);
 }
 
 int main(int argc, char *argv[])

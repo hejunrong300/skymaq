@@ -1,17 +1,10 @@
 
+#include "rpio_write.h"
 #include "tcp_server.h"
 #include <signal.h>
 #include <unistd.h>
 
 RPIO_DATA_HANDLE g_handle;
-
-// void *read_rpio_file_fun(void *arg)
-// {
-// 	while (1)
-// 	{
-// 		sleep(1);
-// 	}
-// }
 
 void ExitProcess(int signo)
 {
@@ -25,7 +18,7 @@ void ExitProcess(int signo)
 		close(g_handle.epoll_fd);
 	}
 
-	rpioDataLockUninit();
+	rpioWDataLockUninit();
 	_exit(1);
 }
 
@@ -42,8 +35,10 @@ int main()
 	{
 		return -1;
 	}
+	sem_init(&g_handle.m_sm, 0, 0);
 	g_handle.listen_fd = listen_fd;
-	rpioDataLockInit();
+	pthread_mutex_init(&(g_handle.linklist_mutex), NULL);
+	rpioWDataLockInit();
 
 	pthread_t recvThread;
 	// tcp server
@@ -51,8 +46,19 @@ int main()
 	{
 		perror("pthread_create error.");
 	}
-	pthread_join(recvThread, (void *)NULL);
 
+	pthread_t saveDataThread;
+	// tcp server
+	if (pthread_create(&saveDataThread, NULL, (void *)&save_data_fun, (void *)&g_handle))
+	{
+		perror("pthread_create error.");
+	}
+
+	pthread_join(recvThread, (void *)NULL);
+	pthread_join(saveDataThread, (void *)NULL);
+
+	pthread_mutex_destroy(&(g_handle.linklist_mutex));
 	close_tcp_server_socket(listen_fd);
-	rpioDataLockUninit();
+	sem_destroy(&g_handle.m_sm);
+	rpioWDataLockUninit();
 }

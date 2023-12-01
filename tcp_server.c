@@ -1,6 +1,8 @@
 #include "tcp_server.h"
-#include "rpio_data.h"
+#include "rpio_write.h"
 #include "run_mutex.h"
+
+#define REVC_BUFFER_MAX_SIZE 4096
 
 char *getPeerIP(int nSock)
 {
@@ -19,7 +21,7 @@ int create_tcp_server_socket(int *sockfd, int port)
 		perror("listenfd failed!\n");
 		return 0;
 	}
-	printf("监听套接字文件描述符：%d\n", listenfd);
+	printf("listenfd=%d\n", listenfd);
 
 	struct sockaddr_in servaddr;
 	memset(&servaddr, 0, sizeof(servaddr));
@@ -39,13 +41,13 @@ int create_tcp_server_socket(int *sockfd, int port)
 
 	if (bind(listenfd, (struct sockaddr *)&servaddr, sizeof(struct sockaddr_in)) < 0)
 	{
-		perror("绑定失败！");
+		perror("bind fail");
 		return succeed_type_failed;
 	}
 
 	if (listen(listenfd, 5) < 0)
 	{
-		perror("监听失败！");
+		perror("listen fail");
 		return succeed_type_failed;
 	}
 
@@ -73,22 +75,24 @@ void recv_rpio_fun(void *arg)
 	int ret = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, listen_fd, &eve);
 	if (ret == -1)
 	{
-		printf("epoll注册失败\n");
+		printf("epoll_ctl failure\n");
 		close(listen_fd);
 		return;
 	}
 	pHandle->epoll_fd = epoll_fd;
-	printf("开始监听！\n");
+	printf("start listen\n");
 	struct epoll_event events[MAX_LISTEN_SOCKET];
 
-	rpioDataLockInit();
+	if (NULL == pHandle->g_link_list)
+		pHandle->g_link_list = Create_Linklist();
+
 	while (1)
 	{
 		int ret;
 		int eventCount = epoll_wait(epoll_fd, events, MAX_LISTEN_SOCKET, 500);
 		if (eventCount == -1)
 		{
-			printf("select 出错！\n");
+			printf("select error！\n");
 			break;
 		}
 		else if (eventCount == 0)
@@ -107,12 +111,12 @@ void recv_rpio_fun(void *arg)
 					int clisock = accept(listen_fd, (struct sockaddr *)&cliAddr, &len);
 					if (clisock == -1)
 					{
-						printf("接收客户端错误\n");
+						printf("Receiving client error\n");
 						continue;
 					}
 					else
 					{
-						printf("接收到客户端连接\n");
+						printf("Client connection received\n");
 					}
 
 					eve.data.fd = clisock;
@@ -121,7 +125,7 @@ void recv_rpio_fun(void *arg)
 				}
 				else
 				{
-					printf("服务器其他事件\n");
+					printf("Server other events\n");
 				}
 			}
 			else
@@ -129,8 +133,8 @@ void recv_rpio_fun(void *arg)
 				// 对非服务器socket进行处理
 				if (events[i].events & EPOLLIN)
 				{
-					char buf[1024] = {0};
-					size_t len = recv(events[i].data.fd, buf, 1024, 0);
+					char buf[REVC_BUFFER_MAX_SIZE] = {0};
+					size_t len = recv(events[i].data.fd, buf, REVC_BUFFER_MAX_SIZE, 0);
 					if (len < 0)
 					{
 						switch (errno)
@@ -139,7 +143,7 @@ void recv_rpio_fun(void *arg)
 							break;
 						case EINTR: // 被终断
 							printf("recv EINTR... \n");
-							ret = recv(events[i].data.fd, buf, 1024, 0);
+							ret = recv(events[i].data.fd, buf, REVC_BUFFER_MAX_SIZE, 0);
 							break;
 						default:
 							printf("the client is closed, fd:%d\n", events[i].data.fd);
@@ -150,17 +154,29 @@ void recv_rpio_fun(void *arg)
 					}
 					else if (len == 0)
 					{
-						printf("客户端已经断开连接！\n");
+						printf("The client is disconnected!\n");
 						epoll_ctl(epoll_fd, EPOLL_CTL_DEL, events[i].data.fd, NULL);
 						close(events[i].data.fd);
 						break;
 					}
 					else
 					{
-#ifdef DEBUG
-						printf("接收到客户端%d数据：%s\n", events[i].data.fd, buf);
-#endif
-						writeRPIOData(events[i].data.fd, buf, len);
+
+						if (len < REVC_BUFFER_MAX_SIZE)
+						{
+							data_t data;
+							memset(&data, 0, sizeof(data_t));
+							memcpy(data.buffer, buf, len);
+							data.nlen = len;
+							pthread_mutex_lock(&(pHandle->linklist_mutex));
+							Linklist_Insert(pHandle->g_link_list, data);
+							pthread_mutex_unlock(&(pHandle->linklist_mutex));
+							sem_post(&pHandle->m_sm);
+						}
+						else
+						{
+							close(events[i].data.fd);
+						}
 					}
 
 					// char send_buff[1024];
@@ -169,15 +185,15 @@ void recv_rpio_fun(void *arg)
 				}
 				else if (events[i].events & EPOLLOUT)
 				{
-					printf("客户端 EPOLLOUT\n");
+					printf("client EPOLLOUT\n");
 				}
 				else
 				{
-					printf("客户端其他事件\n");
+					printf("Other events on the client.\n");
 				}
 			}
 		}
 	}
-	rpioDataLockUninit();
+
 	close(epoll_fd);
 }

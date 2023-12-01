@@ -1,6 +1,8 @@
 #ifndef __TCP_SERVER_H__
 #define __TCP_SERVER_H__
 
+#include "linklist.h"
+#include "server.h"
 #include <arpa/inet.h>
 #include <errno.h>
 #include <stdio.h>
@@ -20,15 +22,10 @@ typedef enum succeed_type_type
 	succeed_type_succeed,
 } succeed_type;
 
-typedef struct _RPIO_DATA_HANDLE
-{
-	int listen_fd;
-	int epoll_fd;
-} RPIO_DATA_HANDLE;
-
 int create_tcp_server_socket(int *sockfd, int port);
 
 int close_tcp_server_socket(int sock_fd);
 
 void recv_rpio_fun(void *arg);
+
 #endif

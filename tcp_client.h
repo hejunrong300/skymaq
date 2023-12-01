@@ -1,6 +1,7 @@
 #ifndef __TCP_CLIENT_SOCKET_H__
 #define __TCP_CLIENT_SOCKET_H__
 #include <arpa/inet.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,6 +16,7 @@
 typedef struct _TCP_CLIENT_HANDLE
 {
 	int sockfd;
+	pthread_rwlock_t rwlock;
 } TCP_CLIENT_HANDLE;
 
 typedef void (*sendDataCallbackFunc)(int sock_fd, char *buffer, int len);

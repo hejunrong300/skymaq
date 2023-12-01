@@ -29,8 +29,8 @@ TARGET = rpiotest
 
 OBJS=main.o 
 
-CLINETOBJS=clientMain.o tcp_client.o rpio_data.o run_mutex.o
-SERVEROBJS=serverMain.o tcp_server.o rpio_data.o run_mutex.o
+CLINETOBJS=clientMain.o tcp_client.o rpio_read.o run_mutex.o
+SERVEROBJS=serverMain.o tcp_server.o rpio_write.o run_mutex.o linklist.o
 
 $(OBJS):%.o:%.c
 	$(GCC) -c $< -o $@ $(GCC_FLAGS) $(INCLUDES) $(LOADDIR) $(LIBS)
