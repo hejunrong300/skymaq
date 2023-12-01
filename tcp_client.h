@@ -16,15 +16,16 @@
 typedef struct _TCP_CLIENT_HANDLE
 {
 	int sockfd;
-	pthread_rwlock_t rwlock;
+	char serIp[64];
 } TCP_CLIENT_HANDLE;
 
-typedef void (*sendDataCallbackFunc)(int sock_fd, char *buffer, int len);
+typedef void (*sendDataCallbackFunc)(TCP_CLIENT_HANDLE *pHandle, char *buffer, int len);
 
 int tcp_client_sock_init();
 int sock_conncet(int sock_fd, const char *serip);
-int tcp_client_send_data(int sock_fd, char *buff, int datalen);
+int tcp_client_send_data(TCP_CLIENT_HANDLE *pHandle, char *buff, int datalen);
 int tcp_client_recv_data(int sock_fd, char *buff, int datalen);
 int tcp_client_sock_close(int sock_fd);
+int tcp_socket_restart(TCP_CLIENT_HANDLE *pHandle);
 
 #endif

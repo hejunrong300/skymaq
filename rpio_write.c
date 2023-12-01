@@ -7,6 +7,8 @@
 #include <unistd.h>
 
 #define FILE_MAX_SIZE 0x1000000
+#define WRITE_FILE_BUFF_MAX_SIZE 4096
+
 static HANDLE s_rpioWDataLock = NULL;
 
 char FileBaseName[] = "RPIO.txt";
@@ -47,7 +49,7 @@ BOOL writeRPIOData(FILE *fp, char *buffer, int len)
 {
 	static double lastTime = 0;
 	double curTime = GetCurrentTime();
-
+	printf("[writeRPIOData]-datalen = %d\n", len);
 	if (curTime - lastTime > 10)
 	{
 		lastTime = curTime;
@@ -79,6 +81,21 @@ BOOL writeRPIOData(FILE *fp, char *buffer, int len)
 	return TRUE;
 }
 
+void batch_write_file(FILE *fp, char *buffer, int nlen)
+{
+	if (writeRPIOData(fp, buffer, nlen) == FALSE)
+	{
+		closeRPIOFile(fp);
+		if (openRPIOFile(&fp) == FALSE)
+		{
+			printf("打开文件失败！\n");
+			rw_mutex_unLock(s_rpioWDataLock);
+			return;
+		}
+		writeRPIOData(fp, buffer, nlen);
+	}
+}
+
 void save_data_fun(void *args)
 {
 	RPIO_DATA_HANDLE *pHandle = (RPIO_DATA_HANDLE *)args;
@@ -95,6 +112,8 @@ void save_data_fun(void *args)
 		return;
 	}
 	data_t data;
+	int offset = 0;
+	char buffer[WRITE_FILE_BUFF_MAX_SIZE + 1] = {0};
 	while (1)
 	{
 
@@ -111,22 +130,34 @@ void save_data_fun(void *args)
 			Linklist_pop(pHandle->g_link_list, &data);
 			pthread_mutex_unlock(&(pHandle->linklist_mutex));
 #ifdef DEBUG
-			printf("data.nlen=%d \n", data.nlen);
-			printf("data.buffer=\n%s\n", data.buffer);
-
+			// printf("data.nlen=%d \n", data.nlen);
+			// printf("data.buffer=\n%s\n", data.buffer);
+			// printf("offset=%d\n", offset);
 #endif
 
-			if (writeRPIOData(fp, data.buffer, data.nlen) == FALSE)
+			static double startTime = 0;
+			double endTime = GetCurrentTime();
+			if (offset + data.nlen >= WRITE_FILE_BUFF_MAX_SIZE)
 			{
-				closeRPIOFile(fp);
-				if (openRPIOFile(&fp) == FALSE)
-				{
-					printf("打开文件失败！\n");
-					rw_mutex_unLock(s_rpioWDataLock);
-					return;
-				}
-				writeRPIOData(fp, data.buffer, data.nlen);
+				batch_write_file(fp, buffer, offset);
+				memset(buffer, 0, WRITE_FILE_BUFF_MAX_SIZE);
+				offset = 0;
+				startTime = endTime;
 			}
+			else if (endTime - startTime > 1)
+			{
+				printf("time to write file.\n");
+				if (offset > 0)
+				{
+					batch_write_file(fp, buffer, offset);
+					offset = 0;
+					startTime = endTime;
+					memset(buffer, 0, WRITE_FILE_BUFF_MAX_SIZE);
+				}
+			}
+
+			memcpy(buffer + offset, data.buffer, data.nlen);
+			offset += data.nlen;
 		}
 	}
 	rw_mutex_unLock(s_rpioWDataLock);

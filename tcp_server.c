@@ -84,7 +84,9 @@ void recv_rpio_fun(void *arg)
 	struct epoll_event events[MAX_LISTEN_SOCKET];
 
 	if (NULL == pHandle->g_link_list)
+	{
 		pHandle->g_link_list = Create_Linklist();
+	}
 
 	while (1)
 	{
@@ -161,7 +163,7 @@ void recv_rpio_fun(void *arg)
 					}
 					else
 					{
-
+						// printf("client_fd = %d\n", events[i].data.fd);
 						if (len < REVC_BUFFER_MAX_SIZE)
 						{
 							data_t data;

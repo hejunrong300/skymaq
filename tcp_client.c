@@ -1,4 +1,5 @@
 #include "tcp_client.h"
+#include "errno.h"
 #include "rpio_read.h"
 #include "run_mutex.h"
 
@@ -40,13 +41,44 @@ int sock_conncet(int sock_fd, const char *serip)
 	}
 }
 
-int tcp_client_send_data(int sock_fd, char *buff, int datalen)
+int tcp_socket_restart(TCP_CLIENT_HANDLE *pHandle)
 {
-	if (sock_fd < 0)
+	tcp_client_sock_close(pHandle->sockfd);
+	int fd = tcp_client_sock_init();
+	if (fd < 0)
+	{
+		printf("create client socket failure!\n");
+		return -1;
+	}
+	int ret = sock_conncet(fd, pHandle->serIp);
+	if (ret < 0)
+	{
+		printf("client connect to server failure!\n");
+		return -1;
+	}
+	pHandle->sockfd = fd;
+	return 0;
+}
+
+int tcp_client_send_data(TCP_CLIENT_HANDLE *pHandle, char *buff, int datalen)
+{
+	if (pHandle->sockfd < 0)
 	{
 		return -1;
 	}
-	return send(sock_fd, buff, datalen, 0);
+
+	int ret = send(pHandle->sockfd, buff, datalen, 0);
+	if (ret == -1)
+	{
+		perror("send error");
+		if (errno == 104)
+		{
+			sleep(1);
+			tcp_socket_restart(pHandle);
+			send(pHandle->sockfd, buff, datalen, 0);
+		}
+	}
+	return 0;
 }
 
 int tcp_client_recv_data(int sock_fd, char *buff, int datalen)

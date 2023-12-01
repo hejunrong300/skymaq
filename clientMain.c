@@ -14,7 +14,7 @@ void ExitProcess(int signo)
 	{
 		tcp_client_sock_close(g_handle.sockfd);
 	}
-	pthread_rwlock_destroy(&g_handle.rwlock);
+
 	rpioDataLockUninit();
 	_exit(1);
 }
@@ -24,8 +24,13 @@ void rpioDataLockInit(void) { s_rpioDataLock = rw_mutex_create(); }
 void rpioDataLockUninit(void) { rw_mutex_destroy(s_rpioDataLock); }
 
 // 定义回调函数
-void callbackFunction(int sock_fd, char *buffer, int len) { tcp_client_send_data(sock_fd, buffer, len); }
-
+void callbackFunction(TCP_CLIENT_HANDLE *pHandle, char *buffer, int len)
+{
+	if (pHandle)
+	{
+		tcp_client_send_data(pHandle, buffer, len);
+	}
+}
 void send_fun(void *args)
 {
 	TCP_CLIENT_HANDLE *pHandle = (TCP_CLIENT_HANDLE *)args;
@@ -79,6 +84,7 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 	g_handle.sockfd = fd;
+	sprintf(g_handle.serIp, "%s", serIp);
 	rpioDataLockInit();
 
 	registercSendCallfunc(callbackFunction);
