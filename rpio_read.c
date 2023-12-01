@@ -73,7 +73,7 @@ int transfer_data(FILE *fp, TCP_CLIENT_HANDLE *pHandle)
 
 	while (fread(read_buff, sizeof(char), 1024, fp) != EOF)
 	{
-		printf("reading file:%s\n", read_buff);
+		printf("reading file:\n%s\n", read_buff);
 		g_sendCallBack(pHandle->sockfd, read_buff, strlen(read_buff) + 1);
 		usleep(500);
 	}

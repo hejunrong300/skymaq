@@ -6,7 +6,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#define FILE_MAX_SIZE 0x4000000
+#define FILE_MAX_SIZE 0x1000000
 static HANDLE s_rpioWDataLock = NULL;
 
 char FileBaseName[] = "RPIO.txt";
@@ -72,7 +72,7 @@ BOOL writeRPIOData(FILE *fp, char *buffer, int len)
 		}
 	}
 
-	fseek(fp, 0, SEEK_END); // 定位到文件末尾
+	// fseek(fp, 0, SEEK_END); // 定位到文件末尾
 
 	fwrite(buffer, sizeof(char), len, fp);
 
@@ -89,11 +89,22 @@ void save_data_fun(void *args)
 		printf("打开文件失败！\n");
 		return;
 	}
+	if (rw_mutex_wlock(s_rpioWDataLock, 500) != ERR_MUTEX_OK)
+	{
+		printf("rw_mutex_wlock failed.\n");
+		return;
+	}
 	data_t data;
 	while (1)
 	{
+
+		// sem_wait(&pHandle->m_sm);
+		if (Linklist_Empty(pHandle->g_link_list))
+		{
+			usleep(100);
+			continue;
+		}
 		memset(&data, 0, sizeof(data_t));
-		sem_wait(&pHandle->m_sm);
 		while (Linklist_Empty(pHandle->g_link_list) == 0)
 		{
 			pthread_mutex_lock(&(pHandle->linklist_mutex));
@@ -101,15 +112,10 @@ void save_data_fun(void *args)
 			pthread_mutex_unlock(&(pHandle->linklist_mutex));
 #ifdef DEBUG
 			printf("data.nlen=%d \n", data.nlen);
-			printf("data.buffer=%s\n", data.buffer);
+			printf("data.buffer=\n%s\n", data.buffer);
 
 #endif
 
-			if (rw_mutex_wlock(s_rpioWDataLock, 500) != ERR_MUTEX_OK)
-			{
-				printf("rw_mutex_wlock failed.\n");
-				return;
-			}
 			if (writeRPIOData(fp, data.buffer, data.nlen) == FALSE)
 			{
 				closeRPIOFile(fp);
@@ -121,9 +127,9 @@ void save_data_fun(void *args)
 				}
 				writeRPIOData(fp, data.buffer, data.nlen);
 			}
-			rw_mutex_unLock(s_rpioWDataLock);
 		}
 	}
+	rw_mutex_unLock(s_rpioWDataLock);
 	closeRPIOFile(fp);
 }
 

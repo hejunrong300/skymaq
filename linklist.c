@@ -54,7 +54,6 @@ int Linklist_Length(LinkList *link)
 
 int Linklist_Insert(LinkList *list, data_t data)
 {
-	printf("Linklist_Insert start\n");
 	LinkList *p = (LinkList *)malloc(sizeof(LinkList));
 	if (NULL == p)
 	{
@@ -73,13 +72,11 @@ int Linklist_Insert(LinkList *list, data_t data)
 	list->tail = p;
 	p->next = NULL;
 
-	printf("Linklist_Insert end\n");
 	return 0;
 }
 
 int Linklist_pop(LinkList *list, data_t *pdata)
 {
-	printf("Linklist_pop start\n");
 	if (Linklist_Empty(list))
 	{
 		printf("linklist is empty.\n");
@@ -95,7 +92,6 @@ int Linklist_pop(LinkList *list, data_t *pdata)
 		free(q);
 	}
 
-	printf("Linklist_pop end\n");
 	return 0;
 }
 

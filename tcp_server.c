@@ -171,7 +171,7 @@ void recv_rpio_fun(void *arg)
 							pthread_mutex_lock(&(pHandle->linklist_mutex));
 							Linklist_Insert(pHandle->g_link_list, data);
 							pthread_mutex_unlock(&(pHandle->linklist_mutex));
-							sem_post(&pHandle->m_sm);
+							// sem_post(&pHandle->m_sm);
 						}
 						else
 						{
