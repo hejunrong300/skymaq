@@ -37,6 +37,6 @@ int rw_mutex_unLock(HANDLE hm);
 
 void rw_mutex_destroy(HANDLE hm);
 
-void CLBF_StaticInit(void);
+void Init(void);
 
 #endif

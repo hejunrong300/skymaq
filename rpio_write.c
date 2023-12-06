@@ -1,5 +1,4 @@
 #include "rpio_write.h"
-#include "server.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -75,8 +74,8 @@ BOOL writeRPIOData(FILE *fp, char *buffer, int len)
 	}
 
 	// fseek(fp, 0, SEEK_END); // 定位到文件末尾
-
 	fwrite(buffer, sizeof(char), len, fp);
+	printf("writeRPIOData ok.\n");
 
 	return TRUE;
 }
@@ -96,72 +95,92 @@ void batch_write_file(FILE *fp, char *buffer, int nlen)
 	}
 }
 
+int flush_list_data(RPIO_DATA_HANDLE *pHandle)
+{
+	if (pHandle->fp == NULL)
+	{
+		return -1;
+	}
+	data_t data;
+
+	char buffer[WRITE_FILE_BUFF_MAX_SIZE + 1] = {0};
+	memset(&data, 0, sizeof(data_t));
+	while (Linklist_Empty(pHandle->g_link_list) == 0)
+	{
+		pthread_mutex_lock(&(pHandle->linklist_mutex));
+		Linklist_pop(pHandle->g_link_list, &data);
+		pthread_mutex_unlock(&(pHandle->linklist_mutex));
+#ifdef DEBUG
+		// printf("data.nlen=%d \n", data.nlen);
+		// printf("data.buffer=\n%s\n", data.buffer);
+		// printf("datalen=%d\n", datalen);
+#endif
+
+		static double startTime = 0;
+		double endTime = GetCurrentTime();
+		if (pHandle->bufferlen + data.nlen >= WRITE_FILE_BUFF_MAX_SIZE)
+		{
+			batch_write_file(pHandle->fp, buffer, pHandle->bufferlen);
+			memset(buffer, 0, WRITE_FILE_BUFF_MAX_SIZE);
+			pHandle->bufferlen = 0;
+			startTime = endTime;
+		}
+		else if (endTime - startTime > 1)
+		{
+			printf("time to write file.\n");
+			if (pHandle->bufferlen > 0)
+			{
+				batch_write_file(pHandle->fp, buffer, pHandle->bufferlen);
+				pHandle->bufferlen = 0;
+				memset(buffer, 0, WRITE_FILE_BUFF_MAX_SIZE);
+			}
+			startTime = endTime;
+		}
+
+		memcpy(buffer + pHandle->bufferlen, data.buffer, data.nlen);
+		pHandle->bufferlen += data.nlen;
+	}
+	return 0;
+}
+
 void save_data_fun(void *args)
 {
 	RPIO_DATA_HANDLE *pHandle = (RPIO_DATA_HANDLE *)args;
 	FILE *fp;
 
-	if (openRPIOFile(&fp) == FALSE)
-	{
-		printf("打开文件失败！\n");
-		return;
-	}
 	if (rw_mutex_wlock(s_rpioWDataLock, 500) != ERR_MUTEX_OK)
 	{
 		printf("rw_mutex_wlock failed.\n");
 		return;
 	}
-	data_t data;
-	int offset = 0;
-	char buffer[WRITE_FILE_BUFF_MAX_SIZE + 1] = {0};
+	if (openRPIOFile(&fp) == FALSE)
+	{
+		printf("打开文件失败！\n");
+		return;
+	}
+
+	pHandle->fp = fp;
+	pHandle->bufferlen = 0;
+
 	while (1)
 	{
-
 		// sem_wait(&pHandle->m_sm);
-		if (Linklist_Empty(pHandle->g_link_list))
+		if (NULL == pHandle->g_link_list)
 		{
 			usleep(100);
 			continue;
 		}
-		memset(&data, 0, sizeof(data_t));
-		while (Linklist_Empty(pHandle->g_link_list) == 0)
+		else if (Linklist_Empty(pHandle->g_link_list))
 		{
-			pthread_mutex_lock(&(pHandle->linklist_mutex));
-			Linklist_pop(pHandle->g_link_list, &data);
-			pthread_mutex_unlock(&(pHandle->linklist_mutex));
-#ifdef DEBUG
-			// printf("data.nlen=%d \n", data.nlen);
-			// printf("data.buffer=\n%s\n", data.buffer);
-			// printf("offset=%d\n", offset);
-#endif
-
-			static double startTime = 0;
-			double endTime = GetCurrentTime();
-			if (offset + data.nlen >= WRITE_FILE_BUFF_MAX_SIZE)
-			{
-				batch_write_file(fp, buffer, offset);
-				memset(buffer, 0, WRITE_FILE_BUFF_MAX_SIZE);
-				offset = 0;
-				startTime = endTime;
-			}
-			else if (endTime - startTime > 1)
-			{
-				printf("time to write file.\n");
-				if (offset > 0)
-				{
-					batch_write_file(fp, buffer, offset);
-					offset = 0;
-					startTime = endTime;
-					memset(buffer, 0, WRITE_FILE_BUFF_MAX_SIZE);
-				}
-			}
-
-			memcpy(buffer + offset, data.buffer, data.nlen);
-			offset += data.nlen;
+			usleep(100);
+			continue;
 		}
+
+		flush_list_data(pHandle);
 	}
-	rw_mutex_unLock(s_rpioWDataLock);
+
 	closeRPIOFile(fp);
+	rw_mutex_unLock(s_rpioWDataLock);
 }
 
 void rpioWDataLockInit(void) { s_rpioWDataLock = rw_mutex_create(); }

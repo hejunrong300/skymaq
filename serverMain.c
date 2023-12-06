@@ -9,6 +9,15 @@ RPIO_DATA_HANDLE g_handle;
 void ExitProcess(int signo)
 {
 	printf("ExitProcess...\n");
+	flush_list_data(&g_handle);
+	closeRPIOFile(g_handle.fp);
+
+	sleep(1);
+	pthread_cancel(g_handle.recvThread);
+	pthread_cancel(g_handle.saveDataThread);
+	pthread_join(g_handle.recvThread, (void *)NULL);
+	pthread_join(g_handle.saveDataThread, (void *)NULL);
+
 	if (g_handle.listen_fd > 0)
 	{
 		close_tcp_server_socket(g_handle.listen_fd);
@@ -17,7 +26,8 @@ void ExitProcess(int signo)
 	{
 		close(g_handle.epoll_fd);
 	}
-
+	pthread_mutex_destroy(&(g_handle.linklist_mutex));
+	Linklist_free(g_handle.g_link_list);
 	rpioWDataLockUninit();
 	_exit(1);
 }
@@ -35,30 +45,28 @@ int main()
 	{
 		return -1;
 	}
-	sem_init(&g_handle.m_sm, 0, 0);
+	// sem_init(&g_handle.m_sm, 0, 0);
 	g_handle.listen_fd = listen_fd;
 	pthread_mutex_init(&(g_handle.linklist_mutex), NULL);
 	rpioWDataLockInit();
 
-	pthread_t recvThread;
 	// tcp server
-	if (pthread_create(&recvThread, NULL, (void *)&recv_rpio_fun, (void *)&g_handle))
+	if (pthread_create(&g_handle.recvThread, NULL, (void *)&recv_rpio_fun, (void *)&g_handle))
 	{
 		perror("pthread_create error.");
 	}
 
-	pthread_t saveDataThread;
-	// tcp server
-	if (pthread_create(&saveDataThread, NULL, (void *)&save_data_fun, (void *)&g_handle))
+	if (pthread_create(&g_handle.saveDataThread, NULL, (void *)&save_data_fun, (void *)&g_handle))
 	{
 		perror("pthread_create error.");
 	}
 
-	pthread_join(recvThread, (void *)NULL);
-	pthread_join(saveDataThread, (void *)NULL);
+	pthread_join(g_handle.recvThread, (void *)NULL);
+	pthread_join(g_handle.saveDataThread, (void *)NULL);
 
 	pthread_mutex_destroy(&(g_handle.linklist_mutex));
 	close_tcp_server_socket(listen_fd);
-	sem_destroy(&g_handle.m_sm);
+	Linklist_free(g_handle.g_link_list);
+	// sem_destroy(&g_handle.m_sm);
 	rpioWDataLockUninit();
 }

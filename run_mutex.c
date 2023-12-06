@@ -44,7 +44,7 @@ int rw_mutex_rlock(HANDLE hm, DWORD dwWaitTimeout)
 		return ERR_INVALID_ARGS;
 	}
 #ifdef DEBUG
-	printf("[Mutex_Lock] -- close_tcp_server_socket %d ms at %d\n", (int)dwWaitTimeout, (int)time(NULL));
+	printf("[rw_mutex_rlock] -- close_tcp_server_socket %d ms at %d\n", (int)dwWaitTimeout, (int)time(NULL));
 
 #endif
 
@@ -105,7 +105,7 @@ int rw_mutex_wlock(HANDLE hm, DWORD dwWaitTimeout)
 	}
 
 #ifdef DEBUG
-	printf("[Mutex_Lock] -- close_tcp_server_socket %d ms at %d\n", (int)dwWaitTimeout, (int)time(NULL));
+	printf("[rw_mutex_wlock] -- close_tcp_server_socket %d ms at %d\n", (int)dwWaitTimeout, (int)time(NULL));
 #endif
 
 	tLast = GetCurrentTime();

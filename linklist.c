@@ -224,11 +224,10 @@ void Linklist_Setnull(LinkList *link)
 	LinkList *p = link->next;
 	while (p->next != NULL)
 	{
-		// printf("\np->data=%d\n",p->data);
 		Linklist_Delete_Pos(link, 0);
 		p = link->next;
 	}
-	printf("\np->data=%d\n", p->data);
+
 	Linklist_Delete_Pos(link, 0);
 
 	link->next = NULL;
