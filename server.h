@@ -12,6 +12,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#define WRITE_FILE_BUFF_MAX_SIZE 4096
 typedef struct _RPIO_DATA_HANDLE
 {
 	int listen_fd;
@@ -23,6 +24,7 @@ typedef struct _RPIO_DATA_HANDLE
 	int offset;
 	pthread_t recvThread;
 	pthread_t saveDataThread;
+	char buffer[WRITE_FILE_BUFF_MAX_SIZE];
 } RPIO_DATA_HANDLE;
 
 #endif

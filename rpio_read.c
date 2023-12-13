@@ -79,7 +79,7 @@ int transfer_data(FILE *fp, TCP_CLIENT_HANDLE *pHandle)
 		{
 			g_sendCallBack(pHandle, read_buff, strlen(read_buff) + 1);
 		}
-
+		memset(read_buff, 0, 1024);
 		usleep(200);
 	}
 

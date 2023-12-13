@@ -5,8 +5,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#define FILE_MAX_SIZE 0x1000000
-#define WRITE_FILE_BUFF_MAX_SIZE 4096
+#define FILE_MAX_SIZE 0x4000000
 
 static HANDLE s_rpioWDataLock = NULL;
 
@@ -101,6 +100,14 @@ int flush_list_data(RPIO_DATA_HANDLE *pHandle)
 	{
 		return -1;
 	}
+
+	if (pHandle->offset > 0)
+	{
+		batch_write_file(pHandle->fp, pHandle->buffer, pHandle->offset);
+		memset(pHandle->buffer, 0, WRITE_FILE_BUFF_MAX_SIZE);
+		pHandle->offset = 0;
+	}
+
 	data_t data;
 	while (Linklist_Empty(pHandle->g_link_list) == 0)
 	{
@@ -139,7 +146,6 @@ void save_data_fun(void *args)
 
 	static double startTime = 0;
 	double endTime;
-	char buffer[WRITE_FILE_BUFF_MAX_SIZE + 1] = {0};
 
 	while (1)
 	{
@@ -156,9 +162,9 @@ void save_data_fun(void *args)
 				if (pHandle->offset > 0)
 				{
 					printf("time to write file.\n");
-					batch_write_file(pHandle->fp, buffer, pHandle->offset);
+					batch_write_file(pHandle->fp, pHandle->buffer, pHandle->offset);
 					pHandle->offset = 0;
-					memset(buffer, 0, WRITE_FILE_BUFF_MAX_SIZE);
+					memset(pHandle->buffer, 0, WRITE_FILE_BUFF_MAX_SIZE);
 				}
 				startTime = endTime;
 			}
@@ -179,8 +185,8 @@ void save_data_fun(void *args)
 			endTime = GetCurrentTime();
 			if (pHandle->offset + data.nlen >= WRITE_FILE_BUFF_MAX_SIZE)
 			{
-				batch_write_file(pHandle->fp, buffer, pHandle->offset);
-				memset(buffer, 0, WRITE_FILE_BUFF_MAX_SIZE);
+				batch_write_file(pHandle->fp, pHandle->buffer, pHandle->offset);
+				memset(pHandle->buffer, 0, WRITE_FILE_BUFF_MAX_SIZE);
 				pHandle->offset = 0;
 				startTime = endTime;
 			}
@@ -189,14 +195,14 @@ void save_data_fun(void *args)
 				printf("time to write file.\n");
 				if (pHandle->offset > 0)
 				{
-					batch_write_file(pHandle->fp, buffer, pHandle->offset);
+					batch_write_file(pHandle->fp, pHandle->buffer, pHandle->offset);
 					pHandle->offset = 0;
-					memset(buffer, 0, WRITE_FILE_BUFF_MAX_SIZE);
+					memset(pHandle->buffer, 0, WRITE_FILE_BUFF_MAX_SIZE);
 				}
 				startTime = endTime;
 			}
 
-			memcpy(buffer + pHandle->offset, data.buffer, data.nlen);
+			memcpy(pHandle->buffer + pHandle->offset, data.buffer, data.nlen);
 			pHandle->offset += data.nlen;
 		}
 	}
