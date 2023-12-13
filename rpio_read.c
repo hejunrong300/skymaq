@@ -71,7 +71,8 @@ int transfer_data(FILE *fp, TCP_CLIENT_HANDLE *pHandle)
 	fseek(fp, 0, SEEK_SET);
 	char read_buff[1024] = {0};
 
-	while (fread(read_buff, sizeof(char), 1024, fp) != EOF)
+	// while (fread(read_buff, sizeof(char), 1024, fp) != EOF)
+	while (fread(read_buff, sizeof(char), 1024, fp) > 0)
 	{
 		printf("reading file:\n%s\n", read_buff);
 		if (g_sendCallBack)

@@ -102,43 +102,17 @@ int flush_list_data(RPIO_DATA_HANDLE *pHandle)
 		return -1;
 	}
 	data_t data;
-
-	char buffer[WRITE_FILE_BUFF_MAX_SIZE + 1] = {0};
-	memset(&data, 0, sizeof(data_t));
 	while (Linklist_Empty(pHandle->g_link_list) == 0)
 	{
+		memset(&data, 0, sizeof(data_t));
 		pthread_mutex_lock(&(pHandle->linklist_mutex));
 		Linklist_pop(pHandle->g_link_list, &data);
 		pthread_mutex_unlock(&(pHandle->linklist_mutex));
-#ifdef DEBUG
-		// printf("data.nlen=%d \n", data.nlen);
-		// printf("data.buffer=\n%s\n", data.buffer);
-		// printf("datalen=%d\n", datalen);
-#endif
 
-		static double startTime = 0;
-		double endTime = GetCurrentTime();
-		if (pHandle->bufferlen + data.nlen >= WRITE_FILE_BUFF_MAX_SIZE)
+		if (data.nlen > 0)
 		{
-			batch_write_file(pHandle->fp, buffer, pHandle->bufferlen);
-			memset(buffer, 0, WRITE_FILE_BUFF_MAX_SIZE);
-			pHandle->bufferlen = 0;
-			startTime = endTime;
+			batch_write_file(pHandle->fp, data.buffer, data.nlen);
 		}
-		else if (endTime - startTime > 1)
-		{
-			printf("time to write file.\n");
-			if (pHandle->bufferlen > 0)
-			{
-				batch_write_file(pHandle->fp, buffer, pHandle->bufferlen);
-				pHandle->bufferlen = 0;
-				memset(buffer, 0, WRITE_FILE_BUFF_MAX_SIZE);
-			}
-			startTime = endTime;
-		}
-
-		memcpy(buffer + pHandle->bufferlen, data.buffer, data.nlen);
-		pHandle->bufferlen += data.nlen;
 	}
 	return 0;
 }
@@ -147,6 +121,7 @@ void save_data_fun(void *args)
 {
 	RPIO_DATA_HANDLE *pHandle = (RPIO_DATA_HANDLE *)args;
 	FILE *fp;
+	data_t data;
 
 	if (rw_mutex_wlock(s_rpioWDataLock, 500) != ERR_MUTEX_OK)
 	{
@@ -160,11 +135,14 @@ void save_data_fun(void *args)
 	}
 
 	pHandle->fp = fp;
-	pHandle->bufferlen = 0;
+	pHandle->offset = 0;
+
+	static double startTime = 0;
+	double endTime;
+	char buffer[WRITE_FILE_BUFF_MAX_SIZE + 1] = {0};
 
 	while (1)
 	{
-		// sem_wait(&pHandle->m_sm);
 		if (NULL == pHandle->g_link_list)
 		{
 			usleep(100);
@@ -172,11 +150,55 @@ void save_data_fun(void *args)
 		}
 		else if (Linklist_Empty(pHandle->g_link_list))
 		{
+			endTime = GetCurrentTime();
+			if (endTime - startTime > 1)
+			{
+				if (pHandle->offset > 0)
+				{
+					printf("time to write file.\n");
+					batch_write_file(pHandle->fp, buffer, pHandle->offset);
+					pHandle->offset = 0;
+					memset(buffer, 0, WRITE_FILE_BUFF_MAX_SIZE);
+				}
+				startTime = endTime;
+			}
 			usleep(100);
 			continue;
 		}
 
-		flush_list_data(pHandle);
+		while (!Linklist_Empty(pHandle->g_link_list))
+		{
+			memset(&data, 0, sizeof(data_t));
+			pthread_mutex_lock(&(pHandle->linklist_mutex));
+			Linklist_pop(pHandle->g_link_list, &data);
+			pthread_mutex_unlock(&(pHandle->linklist_mutex));
+#ifdef DEBUG
+			// printf("data.nlen=%d \n", data.nlen);
+			// printf("data.buffer=\n%s\n", data.buffer);
+#endif
+			endTime = GetCurrentTime();
+			if (pHandle->offset + data.nlen >= WRITE_FILE_BUFF_MAX_SIZE)
+			{
+				batch_write_file(pHandle->fp, buffer, pHandle->offset);
+				memset(buffer, 0, WRITE_FILE_BUFF_MAX_SIZE);
+				pHandle->offset = 0;
+				startTime = endTime;
+			}
+			else if (endTime - startTime > 1)
+			{
+				printf("time to write file.\n");
+				if (pHandle->offset > 0)
+				{
+					batch_write_file(pHandle->fp, buffer, pHandle->offset);
+					pHandle->offset = 0;
+					memset(buffer, 0, WRITE_FILE_BUFF_MAX_SIZE);
+				}
+				startTime = endTime;
+			}
+
+			memcpy(buffer + pHandle->offset, data.buffer, data.nlen);
+			pHandle->offset += data.nlen;
+		}
 	}
 
 	closeRPIOFile(fp);

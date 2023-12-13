@@ -26,6 +26,8 @@ SYS_LIBS=-ldl -lm -lpthread
 export OBJSDIR = $(shell pwd)
 
 TARGET = rpiotest
+TCPSERVER = server
+TCPCLIENT = client
 
 OBJS=main.o 
 
@@ -45,15 +47,15 @@ $(SERVEROBJS):%.o:%.c
 $(TARGET): $(CLINETOBJS)
 	$(GCC) -o $@ $? $(GCC_FLAGS) $(SYS_LIBS) $(STATIC_LIBS)
 
-client: $(CLINETOBJS)
+$(TCPCLIENT): $(CLINETOBJS)
 	$(GCC) -o $@ $? $(GCC_FLAGS) $(SYS_LIBS) $(STATIC_LIBS)
 
-server: $(SERVEROBJS)
+$(TCPSERVER): $(SERVEROBJS)
 	$(GCC) -o $@ $? $(GCC_FLAGS) $(SYS_LIBS) $(STATIC_LIBS)
 
 ################################################
 clean:
-	$(RM) *.o $(TARGET) client server
+	$(RM) *.o $(TARGET) $(TCPCLIENT) $(TCPSERVER)
 
-all:clean $(TARGET) client server
+all:clean $(TARGET) $(TCPCLIENT) $(TCPSERVER)
 

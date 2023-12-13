@@ -20,7 +20,7 @@ typedef struct _RPIO_DATA_HANDLE
 	pthread_mutex_t linklist_mutex;
 	LinkList *g_link_list;
 	sem_t m_sm;
-	int bufferlen;
+	int offset;
 	pthread_t recvThread;
 	pthread_t saveDataThread;
 } RPIO_DATA_HANDLE;

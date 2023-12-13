@@ -94,7 +94,7 @@ void recv_rpio_fun(void *arg)
 		int eventCount = epoll_wait(epoll_fd, events, MAX_LISTEN_SOCKET, 500);
 		if (eventCount == -1)
 		{
-			printf("select error！\n");
+			printf("select error!\n");
 			break;
 		}
 		else if (eventCount == 0)

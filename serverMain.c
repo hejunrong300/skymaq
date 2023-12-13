@@ -9,14 +9,15 @@ RPIO_DATA_HANDLE g_handle;
 void ExitProcess(int signo)
 {
 	printf("ExitProcess...\n");
-	flush_list_data(&g_handle);
-	closeRPIOFile(g_handle.fp);
 
-	sleep(1);
 	pthread_cancel(g_handle.recvThread);
 	pthread_cancel(g_handle.saveDataThread);
+	sleep(1);
 	pthread_join(g_handle.recvThread, (void *)NULL);
 	pthread_join(g_handle.saveDataThread, (void *)NULL);
+
+	flush_list_data(&g_handle);
+	closeRPIOFile(g_handle.fp);
 
 	if (g_handle.listen_fd > 0)
 	{
