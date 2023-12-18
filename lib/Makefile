@@ -3,7 +3,8 @@
 #######################
 
 # compile and lib parameter
-CC      := gcc
+CROSS_COMPILE=#loongarch64-linux-gnu-
+CC      := $(CROSS_COMPILE)gcc
 LIBS    :=
 LDFLAGS := 
 DEFINES :=

@@ -15,7 +15,7 @@ BUILDTIME="const char buildtime[]=\"buildtime: `date +%Y-%-m-%d-%H:%M`\""
 
 INCLUDES=-I./lib
 LOADDIR=-L./lib
-LIBS=-lLibPrb0400Drv -lmath
+LIBS=-lmath -lLibPrb0400Drv 
 STATIC_LIBS=lib/libLibPrb0400Drv_dbg.a lib/libmath.a
 
 DLL_FLAGS=-fPIC -shared

@@ -77,7 +77,7 @@ int transfer_data(FILE *fp, TCP_CLIENT_HANDLE *pHandle)
 		printf("reading file:\n%s\n", read_buff);
 		if (g_sendCallBack)
 		{
-			g_sendCallBack(pHandle, read_buff, strlen(read_buff) + 1);
+			g_sendCallBack(pHandle, read_buff, strlen(read_buff));
 		}
 		memset(read_buff, 0, 1024);
 		usleep(200);
